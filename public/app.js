@@ -16,6 +16,7 @@ const CATEGORY_LABELS = {
   sonstiges: "Sonstiges",
 };
 const STATUS_LABELS = { offen: "Offen", in_arbeit: "In Arbeit", erledigt: "Erledigt" };
+const ROLE_LABELS = { admin: "Admin", hausmeister: "Hausmeister", frontoffice: "Frontoffice" };
 
 // ---------- API helper ----------
 async function api(path, { method = "GET", body } = {}) {
@@ -79,7 +80,7 @@ async function afterLogin() {
   document.getElementById("login-screen").hidden = true;
   document.getElementById("app-screen").hidden = false;
   document.getElementById("user-name").textContent = state.user.name;
-  document.getElementById("user-role").textContent = state.user.role === "admin" ? "Admin" : "Hausmeister";
+  document.getElementById("user-role").textContent = ROLE_LABELS[state.user.role] || state.user.role;
 
   state.properties = await api("/properties");
   state.selectedProperty = state.properties[0]?.code || null;
@@ -460,7 +461,7 @@ async function renderUsersTab(main) {
       <div class="card-top">
         <div>
           <div class="card-room">${escapeHtml(u.name)} <span class="card-meta">(${escapeHtml(u.username)})</span></div>
-          <div class="card-meta">${u.role === "admin" ? "Admin" : "Hausmeister"} · ${u.properties.join(", ") || "keine Objekte"}</div>
+          <div class="card-meta">${ROLE_LABELS[u.role] || u.role} · ${u.properties.join(", ") || "keine Objekte"}</div>
         </div>
       </div>
     `;
@@ -493,6 +494,7 @@ function openUserForm(existing) {
       <label>Rolle
         <select name="role">
           <option value="hausmeister" ${existing?.role === "hausmeister" ? "selected" : ""}>Hausmeister</option>
+          <option value="frontoffice" ${existing?.role === "frontoffice" ? "selected" : ""}>Frontoffice</option>
           <option value="admin" ${existing?.role === "admin" ? "selected" : ""}>Admin</option>
         </select>
       </label>

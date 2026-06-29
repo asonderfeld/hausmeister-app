@@ -21,8 +21,8 @@ router.post("/", requireAuth, requireAdmin, wrap(async (req, res) => {
   if (!username || !password || !name || !role) {
     return res.status(400).json({ error: "username, password, name und role sind erforderlich." });
   }
-  if (!["admin", "hausmeister"].includes(role)) {
-    return res.status(400).json({ error: "role muss admin oder hausmeister sein." });
+  if (!["admin", "hausmeister", "frontoffice"].includes(role)) {
+    return res.status(400).json({ error: "role muss admin, hausmeister oder frontoffice sein." });
   }
   const users = await readData("users");
   if (users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
@@ -49,8 +49,8 @@ router.put("/:id", requireAuth, requireAdmin, wrap(async (req, res) => {
   const { name, role, properties, password } = req.body;
   if (name) user.name = name;
   if (role) {
-    if (!["admin", "hausmeister"].includes(role)) {
-      return res.status(400).json({ error: "role muss admin oder hausmeister sein." });
+    if (!["admin", "hausmeister", "frontoffice"].includes(role)) {
+      return res.status(400).json({ error: "role muss admin, hausmeister oder frontoffice sein." });
     }
     user.role = role;
   }
