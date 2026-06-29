@@ -226,6 +226,7 @@ main#main-content { padding: 16px; padding-bottom: 90px; min-height: 60vh; }
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);
   display: flex; align-items: flex-end; justify-content: center; z-index: 100;
 }
+.modal-backdrop[hidden] { display: none; }
 .modal {
   width: 100%; max-width: 480px; background: var(--creme);
   border-radius: 16px 16px 0 0; padding: 20px; max-height: 88vh; overflow-y: auto;
