@@ -1,6 +1,7 @@
 const express = require("express");
-const { readData, writeData, nextId } = require("../lib/store");
+const { readData, mutateData, nextId } = require("../lib/store");
 const { requireAuth, requireAdmin } = require("../lib/auth");
+const { HttpError } = require("../lib/errors");
 
 const router = express.Router();
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
@@ -41,25 +42,27 @@ router.post("/", requireAuth, wrap(async (req, res) => {
     return res.status(403).json({ error: "Kein Zugriff auf dieses Objekt." });
   }
 
-  const tickets = await readData("tickets");
-  const ticket = {
-    id: nextId(tickets),
-    propertyCode,
-    room,
-    category,
-    description,
-    priority: prio,
-    photo: photo || null,
-    status: "offen",
-    reportedBy: { userId: req.user.userId, name: req.user.name, role: req.user.role },
-    assignedTo: null,
-    createdAt: new Date().toISOString(),
-    startedAt: null,
-    completedAt: null,
-    completionNote: null,
-  };
-  tickets.push(ticket);
-  await writeData("tickets", tickets);
+  const ticket = await mutateData("tickets", (tickets) => {
+    const newTicket = {
+      id: nextId(tickets),
+      propertyCode,
+      room,
+      category,
+      description,
+      priority: prio,
+      photo: photo || null,
+      status: "offen",
+      reportedBy: { userId: req.user.userId, name: req.user.name, role: req.user.role },
+      assignedTo: null,
+      createdAt: new Date().toISOString(),
+      startedAt: null,
+      completedAt: null,
+      completionNote: null,
+    };
+    tickets.push(newTicket);
+    return newTicket;
+  });
+
   res.status(201).json(ticket);
 }));
 
@@ -68,49 +71,53 @@ router.patch("/:id/status", requireAuth, wrap(async (req, res) => {
   if (!STATUSES.includes(status)) {
     return res.status(400).json({ error: `status muss eine von: ${STATUSES.join(", ")}` });
   }
-  const tickets = await readData("tickets");
-  const ticket = tickets.find((t) => t.id === Number(req.params.id));
-  if (!ticket) return res.status(404).json({ error: "Auftrag nicht gefunden." });
-  if (!canAccessProperty(req.user, ticket.propertyCode)) {
-    return res.status(403).json({ error: "Kein Zugriff auf dieses Objekt." });
-  }
 
-  ticket.status = status;
-  if (status === "in_arbeit" && !ticket.startedAt) {
-    ticket.startedAt = new Date().toISOString();
-  }
-  if (status === "erledigt") {
-    ticket.completedAt = new Date().toISOString();
-    if (completionNote) ticket.completionNote = completionNote;
-  }
+  const ticket = await mutateData("tickets", (tickets) => {
+    const t = tickets.find((t) => t.id === Number(req.params.id));
+    if (!t) throw new HttpError(404, "Auftrag nicht gefunden.");
+    if (!canAccessProperty(req.user, t.propertyCode)) {
+      throw new HttpError(403, "Kein Zugriff auf dieses Objekt.");
+    }
 
-  await writeData("tickets", tickets);
+    t.status = status;
+    if (status === "in_arbeit" && !t.startedAt) {
+      t.startedAt = new Date().toISOString();
+    }
+    if (status === "erledigt") {
+      t.completedAt = new Date().toISOString();
+      if (completionNote) t.completionNote = completionNote;
+    }
+    return t;
+  });
+
   res.json(ticket);
 }));
 
 router.patch("/:id", requireAuth, wrap(async (req, res) => {
-  const tickets = await readData("tickets");
-  const ticket = tickets.find((t) => t.id === Number(req.params.id));
-  if (!ticket) return res.status(404).json({ error: "Auftrag nicht gefunden." });
-  if (!canAccessProperty(req.user, ticket.propertyCode)) {
-    return res.status(403).json({ error: "Kein Zugriff auf dieses Objekt." });
-  }
-
   const { assignedTo, priority, description } = req.body;
-  if (assignedTo !== undefined) ticket.assignedTo = assignedTo;
-  if (priority && PRIORITIES.includes(priority)) ticket.priority = priority;
-  if (description) ticket.description = description;
 
-  await writeData("tickets", tickets);
+  const ticket = await mutateData("tickets", (tickets) => {
+    const t = tickets.find((t) => t.id === Number(req.params.id));
+    if (!t) throw new HttpError(404, "Auftrag nicht gefunden.");
+    if (!canAccessProperty(req.user, t.propertyCode)) {
+      throw new HttpError(403, "Kein Zugriff auf dieses Objekt.");
+    }
+
+    if (assignedTo !== undefined) t.assignedTo = assignedTo;
+    if (priority && PRIORITIES.includes(priority)) t.priority = priority;
+    if (description) t.description = description;
+    return t;
+  });
+
   res.json(ticket);
 }));
 
 router.delete("/:id", requireAuth, requireAdmin, wrap(async (req, res) => {
-  const tickets = await readData("tickets");
-  const idx = tickets.findIndex((t) => t.id === Number(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: "Auftrag nicht gefunden." });
-  tickets.splice(idx, 1);
-  await writeData("tickets", tickets);
+  await mutateData("tickets", (tickets) => {
+    const idx = tickets.findIndex((t) => t.id === Number(req.params.id));
+    if (idx === -1) throw new HttpError(404, "Auftrag nicht gefunden.");
+    tickets.splice(idx, 1);
+  });
   res.json({ ok: true });
 }));
 

@@ -1,6 +1,7 @@
 const express = require("express");
-const { readData, writeData, nextId } = require("../lib/store");
+const { readData, mutateData, nextId } = require("../lib/store");
 const { requireAuth, requireAdmin } = require("../lib/auth");
+const { HttpError } = require("../lib/errors");
 
 const router = express.Router();
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
@@ -36,40 +37,45 @@ router.post("/", requireAuth, wrap(async (req, res) => {
   if (!canAccessProperty(req.user, propertyCode)) {
     return res.status(403).json({ error: "Kein Zugriff auf dieses Objekt." });
   }
-  const entries = await readData("outoforder");
-  const entry = {
-    id: nextId(entries),
-    propertyCode,
-    room,
-    reason,
-    expectedEnd: expectedEnd || null,
-    createdBy: { userId: req.user.userId, name: req.user.name },
-    createdAt: new Date().toISOString(),
-    resolvedAt: null,
-  };
-  entries.push(entry);
-  await writeData("outoforder", entries);
+
+  const entry = await mutateData("outoforder", (entries) => {
+    const newEntry = {
+      id: nextId(entries),
+      propertyCode,
+      room,
+      reason,
+      expectedEnd: expectedEnd || null,
+      createdBy: { userId: req.user.userId, name: req.user.name },
+      createdAt: new Date().toISOString(),
+      resolvedAt: null,
+    };
+    entries.push(newEntry);
+    return newEntry;
+  });
+
   res.status(201).json(entry);
 }));
 
 router.patch("/:id/resolve", requireAuth, wrap(async (req, res) => {
-  const entries = await readData("outoforder");
-  const entry = entries.find((e) => e.id === Number(req.params.id));
-  if (!entry) return res.status(404).json({ error: "Eintrag nicht gefunden." });
-  if (!canAccessProperty(req.user, entry.propertyCode)) {
-    return res.status(403).json({ error: "Kein Zugriff auf dieses Objekt." });
-  }
-  entry.resolvedAt = new Date().toISOString();
-  await writeData("outoforder", entries);
+  const entry = await mutateData("outoforder", (entries) => {
+    const e = entries.find((e) => e.id === Number(req.params.id));
+    if (!e) throw new HttpError(404, "Eintrag nicht gefunden.");
+    if (!canAccessProperty(req.user, e.propertyCode)) {
+      throw new HttpError(403, "Kein Zugriff auf dieses Objekt.");
+    }
+    e.resolvedAt = new Date().toISOString();
+    return e;
+  });
+
   res.json(entry);
 }));
 
 router.delete("/:id", requireAuth, requireAdmin, wrap(async (req, res) => {
-  const entries = await readData("outoforder");
-  const idx = entries.findIndex((e) => e.id === Number(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: "Eintrag nicht gefunden." });
-  entries.splice(idx, 1);
-  await writeData("outoforder", entries);
+  await mutateData("outoforder", (entries) => {
+    const idx = entries.findIndex((e) => e.id === Number(req.params.id));
+    if (idx === -1) throw new HttpError(404, "Eintrag nicht gefunden.");
+    entries.splice(idx, 1);
+  });
   res.json({ ok: true });
 }));
 

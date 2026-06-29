@@ -231,24 +231,31 @@ function openTicketForm() {
     const fd = new FormData(form);
     const photoFile = fd.get("photo");
     let photo = null;
-    if (photoFile && photoFile.size > 0) {
-      photo = await fileToDataUrl(photoFile);
-    }
-    const body = {
-      propertyCode: fd.get("propertyCode"),
-      room: fd.get("room"),
-      category: fd.get("category"),
-      description: fd.get("description"),
-      priority: fd.get("priority"),
-      photo,
-    };
+    const submitBtn = form.querySelector('button[type="submit"]');
     try {
+      if (photoFile && photoFile.size > 0) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Foto wird verarbeitet…";
+        photo = await resizeImage(photoFile);
+        submitBtn.textContent = "Anlegen";
+      }
+      const body = {
+        propertyCode: fd.get("propertyCode"),
+        room: fd.get("room"),
+        category: fd.get("category"),
+        description: fd.get("description"),
+        priority: fd.get("priority"),
+        photo,
+      };
       await api("/tickets", { method: "POST", body });
       closeModal();
       renderTab();
     } catch (err) {
       errEl.textContent = err.message;
       errEl.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Anlegen";
     }
   });
 }
@@ -585,6 +592,42 @@ function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Handyfotos sind oft 3-10MB groß – als Base64 unkomprimiert hochgeladen
+// sprengt das schnell das Request-Limit der API (und macht jede einzelne
+// Aufträge-Liste riesig und langsam). Deshalb hier vor dem Hochladen auf
+// max. 1280px Kantenlänge verkleinern und als JPEG mit Qualität 0.7
+// komprimieren – das reicht für die Vorschau im Auftrag völlig aus und
+// landet meist deutlich unter 300KB.
+function resizeImage(file, maxDim = 1280, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => {
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
