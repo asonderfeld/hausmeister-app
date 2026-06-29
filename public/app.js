@@ -502,6 +502,7 @@ function openUserForm(existing) {
         <button type="button" class="btn-secondary" data-close>Abbrechen</button>
         <button type="submit" class="btn-primary">${existing ? "Speichern" : "Anlegen"}</button>
       </div>
+      ${existing ? `<button type="button" id="delete-user-btn" class="btn-secondary" style="margin-top:8px; border-color:var(--red-strong); color:var(--red-strong);">Benutzer löschen</button>` : ""}
     </form>
   `);
 
@@ -528,6 +529,21 @@ function openUserForm(existing) {
       errEl.hidden = false;
     }
   });
+
+  if (existing) {
+    document.getElementById("delete-user-btn").addEventListener("click", async () => {
+      const errEl = document.getElementById("user-form-error");
+      if (!confirm(`Benutzer "${existing.name}" wirklich löschen?`)) return;
+      try {
+        await api(`/users/${existing.id}`, { method: "DELETE" });
+        closeModal();
+        renderTab();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.hidden = false;
+      }
+    });
+  }
 }
 
 // ---------- Modal helpers ----------
