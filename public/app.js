@@ -261,15 +261,16 @@ function openTicketForm() {
 }
 
 async function openTicketDetail(t) {
-  // Die Liste liefert keine Fotos mehr (Performance). Foto wird hier bei
-  // Bedarf gezielt über GET /tickets/:id nachgeladen.
-  if (t.hasPhoto && t.photo === undefined) {
+  // Die Liste liefert weder Fotos noch den vollen Notiz-Text (Performance).
+  // Beim Öffnen der Detailansicht wird der komplette Auftrag nachgeladen.
+  if (t.notes === undefined) {
     try {
       t = await api(`/tickets/${t.id}`);
     } catch (err) {
-      // ignore – zeigt Detail dann eben ohne Foto
+      // ignore – zeigt Detail dann eben mit den vorhandenen (ggf. unvollständigen) Daten
     }
   }
+  const notes = t.notes || [];
   openModal(`
     <button class="close-x" data-close>&times;</button>
     <h3>${t.propertyCode} · ${escapeHtml(t.room)}</h3>
@@ -284,6 +285,18 @@ async function openTicketDetail(t) {
     ${t.startedAt ? `<p class="card-meta">Begonnen: ${formatDate(t.startedAt)}</p>` : ""}
     ${t.completedAt ? `<p class="card-meta">Erledigt: ${formatDate(t.completedAt)}</p>` : ""}
     ${t.completionNote ? `<p class="card-desc">Notiz: ${escapeHtml(t.completionNote)}</p>` : ""}
+    ${notes.length ? `
+      <div style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
+        <strong style="font-size:13px;">Zwischenstand</strong>
+        ${notes.map((n) => `
+          <div style="border:1px solid var(--border, #ddd); border-radius:8px; padding:8px;">
+            ${n.text ? `<p style="margin:0 0 6px;">${escapeHtml(n.text)}</p>` : ""}
+            ${n.photo ? `<img src="${n.photo}" style="width:100%;border-radius:8px;margin-bottom:6px;" />` : ""}
+            <p class="card-meta" style="margin:0;">${escapeHtml(n.by.name)} · ${formatDate(n.createdAt)}</p>
+          </div>
+        `).join("")}
+      </div>
+    ` : ""}
     <div id="ticket-actions" style="margin-top:14px; display:flex; flex-direction:column; gap:8px;"></div>
   `);
 
@@ -295,6 +308,9 @@ async function openTicketDetail(t) {
     }));
   }
   if (t.status === "in_arbeit") {
+    actions.appendChild(actionButton("Foto/Kommentar hinzufügen", "btn-secondary", () => {
+      openTicketNoteForm(t);
+    }));
     actions.appendChild(actionButton("Als erledigt markieren", "btn-primary", async () => {
       const note = prompt("Kurze Notiz zur Erledigung (optional):") || undefined;
       await api(`/tickets/${t.id}/status`, { method: "PATCH", body: { status: "erledigt", completionNote: note } });
@@ -308,6 +324,60 @@ async function openTicketDetail(t) {
       closeModal(); renderTab();
     }));
   }
+}
+
+// Foto/Kommentar während der Bearbeitung nachtragen (nur solange "in Arbeit").
+function openTicketNoteForm(t) {
+  openModal(`
+    <button class="close-x" data-close>&times;</button>
+    <h3>Zwischenstand hinzufügen</h3>
+    <form id="ticket-note-form">
+      <label>Kommentar (optional)
+        <textarea name="text" placeholder="Was gibt es zu berichten?"></textarea>
+      </label>
+      <label>Foto (optional)
+        <input type="file" name="photo" accept="image/*" />
+      </label>
+      <p id="ticket-note-form-error" class="error-text" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" data-close>Abbrechen</button>
+        <button type="submit" class="btn-primary">Hinzufügen</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById("ticket-note-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const errEl = document.getElementById("ticket-note-form-error");
+    const fd = new FormData(form);
+    const text = fd.get("text")?.trim() || undefined;
+    const photoFile = fd.get("photo");
+    let photo;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (!text && (!photoFile || photoFile.size === 0)) {
+      errEl.textContent = "Bitte Kommentar oder Foto angeben.";
+      errEl.hidden = false;
+      return;
+    }
+    try {
+      if (photoFile && photoFile.size > 0) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Foto wird verarbeitet…";
+        photo = await resizeImage(photoFile);
+        submitBtn.textContent = "Hinzufügen";
+      }
+      await api(`/tickets/${t.id}/notes`, { method: "POST", body: { text, photo } });
+      closeModal();
+      renderTab();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Hinzufügen";
+    }
+  });
 }
 
 // ---------- Außer Betrieb (intern, keine Apaleo-Anbindung) ----------
