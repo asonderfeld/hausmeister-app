@@ -1,8 +1,9 @@
 // Legt zwei Standardbenutzer an, falls noch keine Benutzer existieren.
 // Passwörter unbedingt nach dem ersten Login ändern!
-// Lokal: schreibt nach data/users.json. Auf Vercel (KV_REST_API_URL gesetzt):
-// schreibt in Vercel KV – dafür "vercel env pull" + lokales Ausführen, oder
-// einmalig über eine eigene admin-Route, falls gewünscht.
+// Lokal: schreibt nach data/users.json. Gegen Produktion: vorher
+// "vercel env pull .env.local --environment=production" ausführen – die
+// Variablen daraus werden hier per dotenv geladen, damit REDIS_URL aktiv ist.
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env.local") });
 const fs = require("fs");
 const path = require("path");
 const bcrypt = require("bcryptjs");
