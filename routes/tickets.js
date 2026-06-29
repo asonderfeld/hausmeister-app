@@ -26,7 +26,22 @@ router.get("/", requireAuth, wrap(async (req, res) => {
     tickets = tickets.filter((t) => t.status === req.query.status);
   }
   tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  res.json(tickets);
+  // Fotos werden in der Listenansicht NICHT mitgeschickt (nur in der
+  // Detailansicht über GET /tickets/:id gebraucht). Sonst wird jede
+  // Listenabfrage mit jedem zusätzlichen Foto-Auftrag langsamer, weil alle
+  // Base64-Bilder jedes Mal mit übertragen würden.
+  const withoutPhotos = tickets.map(({ photo, ...rest }) => ({ ...rest, hasPhoto: !!photo }));
+  res.json(withoutPhotos);
+}));
+
+router.get("/:id", requireAuth, wrap(async (req, res) => {
+  const tickets = await readData("tickets");
+  const ticket = tickets.find((t) => t.id === Number(req.params.id));
+  if (!ticket) throw new HttpError(404, "Auftrag nicht gefunden.");
+  if (!canAccessProperty(req.user, ticket.propertyCode)) {
+    throw new HttpError(403, "Kein Zugriff auf dieses Objekt.");
+  }
+  res.json(ticket);
 }));
 
 router.post("/", requireAuth, wrap(async (req, res) => {

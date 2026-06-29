@@ -260,7 +260,16 @@ function openTicketForm() {
   });
 }
 
-function openTicketDetail(t) {
+async function openTicketDetail(t) {
+  // Die Liste liefert keine Fotos mehr (Performance). Foto wird hier bei
+  // Bedarf gezielt über GET /tickets/:id nachgeladen.
+  if (t.hasPhoto && t.photo === undefined) {
+    try {
+      t = await api(`/tickets/${t.id}`);
+    } catch (err) {
+      // ignore – zeigt Detail dann eben ohne Foto
+    }
+  }
   openModal(`
     <button class="close-x" data-close>&times;</button>
     <h3>${t.propertyCode} · ${escapeHtml(t.room)}</h3>
