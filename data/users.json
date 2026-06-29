@@ -1,0 +1,24 @@
+[
+  {
+    "id": 1,
+    "username": "admin",
+    "passwordHash": "$2a$10$5mV9GzW7oog1LFCqUKIF4.PQgKj7E6Yuf1HOr.Y6cQV8isizcyfRC",
+    "name": "Admin",
+    "role": "admin",
+    "properties": [
+      "STGR",
+      "SPHMK"
+    ]
+  },
+  {
+    "id": 2,
+    "username": "hausmeister",
+    "passwordHash": "$2a$10$04kRLMhI0z8q2mvR9f5oCOKQUlXrqly8S/c3t2eR0ZeR.vtKcuLya",
+    "name": "Hausmeister",
+    "role": "hausmeister",
+    "properties": [
+      "STGR",
+      "SPHMK"
+    ]
+  }
+]

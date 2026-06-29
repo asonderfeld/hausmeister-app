@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>mk Technik</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="screen">
+  <div class="login-box">
+    <h1 class="brand">mk Technik</h1>
+    <p class="brand-sub">Haustechnik &amp; Wartung</p>
+    <form id="login-form">
+      <label>Benutzername
+        <input type="text" id="login-username" autocomplete="username" required />
+      </label>
+      <label>Passwort
+        <input type="password" id="login-password" autocomplete="current-password" required />
+      </label>
+      <p id="login-error" class="error-text" hidden></p>
+      <button type="submit" class="btn-primary">Anmelden</button>
+    </form>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" class="screen" hidden>
+  <header class="app-header">
+    <div class="header-top">
+      <div class="header-title">
+        <span class="app-name">mk Technik</span>
+      </div>
+      <div class="header-user">
+        <span id="user-name"></span>
+        <span id="user-role" class="role-badge"></span>
+        <button id="logout-btn" class="icon-btn" title="Abmelden">⏻</button>
+      </div>
+    </div>
+    <div id="property-pills" class="property-pills"></div>
+  </header>
+
+  <main id="main-content"></main>
+
+  <nav id="tab-bar" class="tab-bar"></nav>
+</div>
+
+<!-- generic modal -->
+<div id="modal-backdrop" class="modal-backdrop" hidden>
+  <div id="modal" class="modal"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

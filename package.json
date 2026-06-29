@@ -1,0 +1,16 @@
+{
+  "name": "hausmeister-app",
+  "version": "1.0.0",
+  "description": "Wartungsticket- und Außer-Betrieb-App für die Haustechnik der mk | hotels",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.38.0",
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
