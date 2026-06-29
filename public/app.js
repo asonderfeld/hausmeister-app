@@ -6,6 +6,8 @@ let state = {
   selectedProperty: null,
   tab: "tickets",
   ticketFilter: null, // status filter
+  ticketOverdue: false,
+  ticketMine: false,
 };
 
 const CATEGORY_LABELS = {
@@ -152,11 +154,30 @@ async function renderTicketsTab(main) {
   });
   main.appendChild(filterRow);
 
+  const toggleRow = document.createElement("div");
+  toggleRow.className = "filter-row";
+  const overdueChip = document.createElement("button");
+  overdueChip.className = "chip" + (state.ticketOverdue ? " active" : "");
+  overdueChip.textContent = "Überfällig";
+  overdueChip.onclick = () => { state.ticketOverdue = !state.ticketOverdue; renderTab(); };
+  toggleRow.appendChild(overdueChip);
+  const mineChip = document.createElement("button");
+  mineChip.className = "chip" + (state.ticketMine ? " active" : "");
+  mineChip.textContent = "Meine Aufgaben";
+  mineChip.onclick = () => { state.ticketMine = !state.ticketMine; renderTab(); };
+  toggleRow.appendChild(mineChip);
+  main.appendChild(toggleRow);
+
   const list = document.createElement("div");
   list.className = "card-list";
   main.appendChild(list);
 
-  const query = state.selectedProperty ? `?property=${state.selectedProperty}` + (state.ticketFilter ? `&status=${state.ticketFilter}` : "") : (state.ticketFilter ? `?status=${state.ticketFilter}` : "");
+  const params = new URLSearchParams();
+  if (state.selectedProperty) params.set("property", state.selectedProperty);
+  if (state.ticketFilter) params.set("status", state.ticketFilter);
+  if (state.ticketOverdue) params.set("overdue", "true");
+  if (state.ticketMine) params.set("mine", "true");
+  const query = params.toString() ? `?${params.toString()}` : "";
   const tickets = await api(`/tickets${query}`);
 
   if (tickets.length === 0) {
@@ -165,6 +186,15 @@ async function renderTicketsTab(main) {
   }
 
   tickets.forEach((t) => list.appendChild(renderTicketCard(t)));
+}
+
+function isOverdue(t) {
+  return !!t.dueDate && t.status !== "erledigt" && new Date(t.dueDate).getTime() < Date.now();
+}
+
+function formatDueDate(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("de-DE");
 }
 
 function renderTicketCard(t) {
@@ -184,19 +214,38 @@ function renderTicketCard(t) {
       <span class="badge badge-status-${t.status}">${STATUS_LABELS[t.status]}</span>
       <span class="badge badge-cat">${CATEGORY_LABELS[t.category]}</span>
       ${t.priority === "dringend" ? '<span class="badge badge-urgent">Dringend</span>' : ""}
+      ${isOverdue(t) ? `<span class="badge badge-overdue">Überfällig: ${formatDueDate(t.dueDate)}</span>` : (t.dueDate ? `<span class="badge badge-cat">Fällig: ${formatDueDate(t.dueDate)}</span>` : "")}
+      ${t.assignedTo ? `<span class="badge badge-assigned">${escapeHtml(t.assignedTo.name)}</span>` : ""}
     </div>
   `;
   return card;
 }
 
-function openTicketForm() {
+function assigneeOptions(list) {
+  return `<option value="">Niemand</option>` +
+    list.map((u) => `<option value="${u.id}">${escapeHtml(u.name)}</option>`).join("");
+}
+
+async function fetchAssignable(property) {
+  if (!property) return [];
+  try {
+    return await api(`/users/assignable?property=${encodeURIComponent(property)}`);
+  } catch {
+    return [];
+  }
+}
+
+async function openTicketForm() {
   const propsOptions = state.properties.map((p) => `<option value="${p.code}" ${p.code === state.selectedProperty ? "selected" : ""}>${p.code} – ${p.name}</option>`).join("");
+  const defaultProperty = state.selectedProperty || (state.properties[0] && state.properties[0].code);
+  const assignable = await fetchAssignable(defaultProperty);
+
   openModal(`
     <button class="close-x" data-close>&times;</button>
     <h3>Neuer Auftrag</h3>
     <form id="ticket-form">
       <label>Objekt
-        <select name="propertyCode">${propsOptions}</select>
+        <select name="propertyCode" id="ticket-form-property">${propsOptions}</select>
       </label>
       <label>Zimmer / Bereich
         <input type="text" name="room" placeholder="z.B. 204 oder Lobby" required />
@@ -212,6 +261,12 @@ function openTicketForm() {
       <label>Foto (optional)
         <input type="file" name="photo" accept="image/*" />
       </label>
+      <label>Zu erledigen bis (optional)
+        <input type="date" name="dueDate" />
+      </label>
+      <label>Zuweisen an (optional)
+        <select name="assignedTo" id="ticket-form-assignee">${assigneeOptions(assignable)}</select>
+      </label>
       <div class="toggle-row">
         <label><input type="radio" name="priority" value="normal" checked /><span>Normal</span></label>
         <label><input type="radio" name="priority" value="dringend" /><span>Dringend</span></label>
@@ -223,6 +278,11 @@ function openTicketForm() {
       </div>
     </form>
   `);
+
+  document.getElementById("ticket-form-property").addEventListener("change", async (e) => {
+    const list = await fetchAssignable(e.target.value);
+    document.getElementById("ticket-form-assignee").innerHTML = assigneeOptions(list);
+  });
 
   document.getElementById("ticket-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -246,6 +306,8 @@ function openTicketForm() {
         description: fd.get("description"),
         priority: fd.get("priority"),
         photo,
+        dueDate: fd.get("dueDate") || undefined,
+        assignedTo: fd.get("assignedTo") || undefined,
       };
       await api("/tickets", { method: "POST", body });
       closeModal();
@@ -278,6 +340,8 @@ async function openTicketDetail(t) {
       <span class="badge badge-status-${t.status}">${STATUS_LABELS[t.status]}</span>
       <span class="badge badge-cat">${CATEGORY_LABELS[t.category]}</span>
       ${t.priority === "dringend" ? '<span class="badge badge-urgent">Dringend</span>' : ""}
+      ${isOverdue(t) ? `<span class="badge badge-overdue">Überfällig: ${formatDueDate(t.dueDate)}</span>` : (t.dueDate ? `<span class="badge badge-cat">Fällig: ${formatDueDate(t.dueDate)}</span>` : "")}
+      ${t.assignedTo ? `<span class="badge badge-assigned">${escapeHtml(t.assignedTo.name)}</span>` : ""}
     </div>
     <p>${escapeHtml(t.description)}</p>
     ${t.photo ? `<img src="${t.photo}" style="width:100%;border-radius:8px;margin-bottom:10px;" />` : ""}
@@ -301,6 +365,11 @@ async function openTicketDetail(t) {
   `);
 
   const actions = document.getElementById("ticket-actions");
+  if (t.status !== "erledigt") {
+    actions.appendChild(actionButton("Frist/Zuweisung ändern", "btn-secondary", () => {
+      openTicketAssignForm(t);
+    }));
+  }
   if (t.status === "offen") {
     actions.appendChild(actionButton("Als 'In Arbeit' markieren", "btn-primary", async () => {
       await api(`/tickets/${t.id}/status`, { method: "PATCH", body: { status: "in_arbeit" } });
@@ -376,6 +445,55 @@ function openTicketNoteForm(t) {
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = "Hinzufügen";
+    }
+  });
+}
+
+// Frist ("Zu erledigen bis") und Zuweisung an einen Hausmeister nachträglich
+// ändern.
+async function openTicketAssignForm(t) {
+  const assignable = await fetchAssignable(t.propertyCode);
+  const dueValue = t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "";
+
+  openModal(`
+    <button class="close-x" data-close>&times;</button>
+    <h3>Frist/Zuweisung ändern</h3>
+    <form id="ticket-assign-form">
+      <label>Zu erledigen bis (optional)
+        <input type="date" name="dueDate" value="${dueValue}" />
+      </label>
+      <label>Zuweisen an (optional)
+        <select name="assignedTo">${assigneeOptions(assignable)}</select>
+      </label>
+      <p id="ticket-assign-form-error" class="error-text" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" data-close>Abbrechen</button>
+        <button type="submit" class="btn-primary">Speichern</button>
+      </div>
+    </form>
+  `);
+
+  const select = document.querySelector('#ticket-assign-form select[name="assignedTo"]');
+  if (t.assignedTo) select.value = String(t.assignedTo.userId);
+
+  document.getElementById("ticket-assign-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const errEl = document.getElementById("ticket-assign-form-error");
+    const fd = new FormData(form);
+    try {
+      await api(`/tickets/${t.id}`, {
+        method: "PATCH",
+        body: {
+          dueDate: fd.get("dueDate") || null,
+          assignedTo: fd.get("assignedTo") ? Number(fd.get("assignedTo")) : null,
+        },
+      });
+      closeModal();
+      renderTab();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.hidden = false;
     }
   });
 }

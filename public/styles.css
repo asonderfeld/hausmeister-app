@@ -213,6 +213,8 @@ main#main-content { padding: 16px; padding-bottom: 90px; min-height: 60vh; }
 .badge-status-erledigt { background: #d7ecd9; color: var(--green); }
 .badge-urgent { background: var(--red-strong); color: white; }
 .badge-cat { background: #e9e3d2; color: var(--petrol); }
+.badge-overdue { background: var(--red-strong); color: white; }
+.badge-assigned { background: #dde6e8; color: var(--petrol); }
 .pulse-dot {
   width: 8px; height: 8px; border-radius: 50%; background: var(--gold);
   display: inline-block; margin-right: 5px;

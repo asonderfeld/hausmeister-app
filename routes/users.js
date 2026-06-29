@@ -19,6 +19,20 @@ router.get("/", requireAuth, requireAdmin, wrap(async (req, res) => {
   res.json(users.map(publicUser));
 }));
 
+// Minimaler, nicht-admin-Endpoint: liefert nur id+name der Hausmeister, die
+// einem Objekt zugeordnet sind – für das Zuweisen-Dropdown bei Aufträgen.
+// Bewusst kein voller Benutzerdatensatz, damit Nicht-Admins nicht die
+// komplette Benutzerliste (inkl. Rollen, Objekte) sehen.
+router.get("/assignable", requireAuth, wrap(async (req, res) => {
+  const users = await readData("users");
+  const property = req.query.property;
+  let candidates = users.filter((u) => u.role === "hausmeister");
+  if (property) {
+    candidates = candidates.filter((u) => u.properties.includes(property));
+  }
+  res.json(candidates.map((u) => ({ id: u.id, name: u.name })));
+}));
+
 router.post("/", requireAuth, requireAdmin, wrap(async (req, res) => {
   const { username, password, name, role, properties } = req.body;
   if (!username || !password || !name || !role) {

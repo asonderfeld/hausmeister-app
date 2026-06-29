@@ -25,6 +25,13 @@ router.get("/", requireAuth, wrap(async (req, res) => {
   if (req.query.status) {
     tickets = tickets.filter((t) => t.status === req.query.status);
   }
+  if (req.query.overdue === "true") {
+    const now = Date.now();
+    tickets = tickets.filter((t) => t.dueDate && new Date(t.dueDate).getTime() < now && t.status !== "erledigt");
+  }
+  if (req.query.mine === "true") {
+    tickets = tickets.filter((t) => t.assignedTo && t.assignedTo.userId === req.user.userId);
+  }
   tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   // Fotos werden in der Listenansicht NICHT mitgeschickt (nur in der
   // Detailansicht über GET /tickets/:id gebraucht). Sonst wird jede
@@ -50,7 +57,7 @@ router.get("/:id", requireAuth, wrap(async (req, res) => {
 }));
 
 router.post("/", requireAuth, wrap(async (req, res) => {
-  const { propertyCode, room, category, description, priority, photo } = req.body;
+  const { propertyCode, room, category, description, priority, photo, dueDate, assignedTo } = req.body;
   if (!propertyCode || !room || !category || !description) {
     return res.status(400).json({ error: "propertyCode, room, category und description sind erforderlich." });
   }
@@ -60,6 +67,16 @@ router.post("/", requireAuth, wrap(async (req, res) => {
   const prio = priority && PRIORITIES.includes(priority) ? priority : "normal";
   if (!canAccessProperty(req.user, propertyCode)) {
     return res.status(403).json({ error: "Kein Zugriff auf dieses Objekt." });
+  }
+
+  // Zuweisung gleich bei Anlage erlauben: Name des Hausmeisters einmalig
+  // nachschlagen, bevor die atomare Schreibtransaktion startet.
+  let assignee = null;
+  if (assignedTo) {
+    const users = await readData("users");
+    const u = users.find((u) => u.id === Number(assignedTo));
+    if (!u) return res.status(400).json({ error: "Zugewiesener Benutzer nicht gefunden." });
+    assignee = { userId: u.id, name: u.name };
   }
 
   const ticket = await mutateData("tickets", (tickets) => {
@@ -73,7 +90,8 @@ router.post("/", requireAuth, wrap(async (req, res) => {
       photo: photo || null,
       status: "offen",
       reportedBy: { userId: req.user.userId, name: req.user.name, role: req.user.role },
-      assignedTo: null,
+      assignedTo: assignee,
+      dueDate: dueDate || null,
       createdAt: new Date().toISOString(),
       startedAt: null,
       completedAt: null,
@@ -148,7 +166,22 @@ router.patch("/:id/status", requireAuth, wrap(async (req, res) => {
 }));
 
 router.patch("/:id", requireAuth, wrap(async (req, res) => {
-  const { assignedTo, priority, description } = req.body;
+  const { assignedTo, priority, description, dueDate } = req.body;
+
+  // assignedTo kommt vom Client als userId (Zahl) oder null (Zuweisung
+  // entfernen). Name vorab nachschlagen, da die mutateData()-Transaktion
+  // selbst keinen weiteren Datenzugriff machen kann.
+  let assignee;
+  if (assignedTo !== undefined) {
+    if (assignedTo === null) {
+      assignee = null;
+    } else {
+      const users = await readData("users");
+      const u = users.find((u) => u.id === Number(assignedTo));
+      if (!u) return res.status(400).json({ error: "Zugewiesener Benutzer nicht gefunden." });
+      assignee = { userId: u.id, name: u.name };
+    }
+  }
 
   const ticket = await mutateData("tickets", (tickets) => {
     const t = tickets.find((t) => t.id === Number(req.params.id));
@@ -157,9 +190,10 @@ router.patch("/:id", requireAuth, wrap(async (req, res) => {
       throw new HttpError(403, "Kein Zugriff auf dieses Objekt.");
     }
 
-    if (assignedTo !== undefined) t.assignedTo = assignedTo;
+    if (assignee !== undefined) t.assignedTo = assignee;
     if (priority && PRIORITIES.includes(priority)) t.priority = priority;
     if (description) t.description = description;
+    if (dueDate !== undefined) t.dueDate = dueDate || null;
     return t;
   });
 
