@@ -41,6 +41,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; margin: 0; }
   justify-content: center;
   background: linear-gradient(180deg, var(--petrol) 0%, var(--petrol-dark) 100%);
 }
+#login-screen[hidden] { display: none; }
 .login-box {
   width: 85%;
   background: var(--creme);

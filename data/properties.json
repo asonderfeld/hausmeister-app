@@ -1,4 +1,20 @@
 [
-  { "code": "STGR", "name": "Stuttgart" },
-  { "code": "SPHMK", "name": "Speyer" }
+  { "code": "ARNS", "name": "Gästehäuser Arnstorf" },
+  { "code": "BER", "name": "mk | hotel berlin" },
+  { "code": "EBO", "name": "mk | hotel eschborn" },
+  { "code": "FRA", "name": "mk | hotel frankfurt" },
+  { "code": "HAM_INN", "name": "Site.Inn Hamburg" },
+  { "code": "LON", "name": "mk | hotel london" },
+  { "code": "MUC_CTY", "name": "mk | hotel münchen city" },
+  { "code": "MUC_INN", "name": "Site.Inn München" },
+  { "code": "MUC_MWP", "name": "mk | hotel münchen max weber platz" },
+  { "code": "NIN", "name": "mk | apartments nin" },
+  { "code": "REM", "name": "mk | hotel remscheid" },
+  { "code": "RUE", "name": "mk | hotel rüsselsheim" },
+  { "code": "SPHMK", "name": "Schlossparkhotel Mariakirchen" },
+  { "code": "STGR", "name": "mk | hotel stuttgart" },
+  { "code": "STT_INN", "name": "Site.Inn Denkendorf" },
+  { "code": "TIA", "name": "mk | hotel tirana" },
+  { "code": "VIE_INN", "name": "SITE.INN Wien" },
+  { "code": "ZPF", "name": "mk | hotel passau" }
 ]
