@@ -19,27 +19,23 @@ Lokal werden die Daten einfach in `data/*.json` gespeichert – kein Setup nöti
 ## Deployment auf Vercel
 
 Auf Vercel ist das Dateisystem nicht dauerhaft beschreibbar. Die App nutzt
-dort stattdessen Redis (über eine Vercel-Marketplace-Integration, z.B.
-Upstash) für `users`, `tickets`, `outoforder`, `properties`.
+dort stattdessen Redis (über eine Vercel-Marketplace-Integration) für
+`users`, `tickets`, `outoforder`, `properties`.
 
 1. Repo auf [vercel.com](https://vercel.com) importieren (siehe Schritte unten für GitHub).
-2. Im Vercel-Projekt unter **Storage** eine **Redis**-Datenbank hinzufügen (Marketplace → Redis, z.B. Upstash) und mit dem Projekt verbinden. Vercel setzt dadurch automatisch die Env-Variablen `KV_REST_API_URL` und `KV_REST_API_TOKEN` (oder `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` – beide werden unterstützt).
+2. Im Vercel-Projekt unter **Storage** eine **Redis**-Datenbank hinzufügen (Marketplace → Redis) und mit dem Projekt verbinden. Vercel setzt dadurch automatisch die Env-Variable `REDIS_URL` (Connection-String).
 3. Unter **Settings → Environment Variables** zusätzlich `JWT_SECRET` setzen (langer, zufälliger String – z.B. `openssl rand -hex 32`).
 4. Deployen.
-5. Einmalig Benutzer/Objekte anlegen: lokal `vercel env pull` ausführen, damit die Redis-Env-Variablen lokal verfügbar sind, dann `npm run seed` – das Skript schreibt dann direkt in die produktive Redis-Instanz statt in die lokalen JSON-Dateien.
+5. Einmalig Benutzer/Objekte anlegen: lokal `vercel link` (Projekt verknüpfen) und `vercel env pull .env.local --environment=production` ausführen, damit `REDIS_URL` lokal verfügbar ist, dann `npm run seed` – das Skript schreibt dann direkt in die produktive Redis-Instanz statt in die lokalen JSON-Dateien.
 
 ## GitHub-Repo erstellen & pushen
 
+Das Git-Repo ist im Projektordner schon angelegt (ein Commit, Branch `master`).
+
+Auf [github.com/new](https://github.com/new) ein **leeres** Repo anlegen (ohne README/.gitignore – die gibt es hier schon). Danach im Projektordner (Terminal auf deinem Mac, nicht hier im Chat):
+
 ```
 cd "Hausm,eitser APP"
-git init
-git add .
-git commit -m "Initial commit: Hausmeister-App"
-```
-
-Dann auf [github.com/new](https://github.com/new) ein leeres Repo anlegen (ohne README/.gitignore, die gibt es schon), danach:
-
-```
 git branch -M main
 git remote add origin <URL deines neuen Repos>
 git push -u origin main
